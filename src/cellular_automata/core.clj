@@ -1,5 +1,5 @@
 (ns cellular-automata.core
-  (:require [quil.core :as q]
+  (:require [quil.core :as quil]
             [quil.middleware :as m]
             [cellular-automata.utils :as utils]))
 
@@ -11,38 +11,36 @@
 (def test-board (utils/from-file test-file cell-size))
 
 (defn setup []
-  (q/frame-rate 30)
+  (quil/frame-rate 30)
   (into {} test-board))
 
-(defn neighbor-coords
-  [x y]
+; pre-calculate all 8 directions a cell has a neighbor in
+(def neighbor-coords
   (for [i [-1 0 1]
         j [-1 0 1]]
     [i j]))
 
 (defn neighbors
   [[x y] cells]
-  (let [coords (neighbor-coords x y)
-        neighbors (for [[cx cy] coords
-                        :let [a (get cells [(+ x cx) (+ y cy)])]
-                        :when (and (some? a) (not= 0 cx cy) a)] ; don't include itself or nil neighbors
-                    [[cx cy] a])]
+  (let [neighbors (for [[neighbor-offset-x neighbor-offset-y] neighbor-coords
+                        :let [neighbor-coord [(+ x neighbor-offset-x) (+ y neighbor-offset-y)]
+                              alive? (get cells neighbor-coord)]
+                        :when (and (some? alive?) (not= 0 neighbor-offset-x neighbor-offset-y) alive?)]
+                    [[neighbor-offset-x neighbor-offset-y] alive?])]
     (count neighbors)))
-
 
 (defn conway
   [cells]
-  (for [[[x y] a] cells
-        :let [n (neighbors [x y] cells)]]
-    (if a
+  (for [[[x y] alive?] cells
+        :let [neighbor-count (neighbors [x y] cells)]]
+    (if alive?
       (cond
-        (or (= n 2) (= n 3)) [[x y] true]
-        (or (< n 2) (> n 3)) [[x y] false]
-        :else [[x y] a])
-      (if (= n 3)
+        (or (= neighbor-count 2) (= neighbor-count 3)) [[x y] true]
+        (or (< neighbor-count 2) (> neighbor-count 3)) [[x y] false]
+        :else [[x y] alive?])
+      (if (= neighbor-count 3)
         [[x y] true]
         [[x y] false]))))
-    
 
 (defn handle-keys
   [state e]
@@ -66,18 +64,18 @@
 
 (defn draw-cell
   [x y]
-  (q/rect (* x cell-size) (* y cell-size) cell-size cell-size))
+  (quil/rect (* x cell-size) (* y cell-size) cell-size cell-size))
 
 (defn draw-state
   [state]
-  (q/background 0)
-  (q/stroke 255)
+  (quil/background 0)
+  (quil/stroke 255)
   (doseq [[[x y] a] state]
-    (if a (q/fill 220 220 220) (q/fill 0 0 0))
+    (if a (quil/fill 220 220 220) (quil/fill 0 0 0))
     (draw-cell x y)))
 
-(q/defsketch cellular-automata
-  :title "cellular automat"
+(quil/defsketch cellular-automata
+  :title "cellular automata"
   :size [805 805]
   :setup setup
   :update update-state
@@ -89,4 +87,4 @@
 
 ; TODO
 ; save current cells as file
-; load file with command arg? - gui?
+; load file with command arg? - gui? 
